@@ -18,7 +18,7 @@ def obtain_trn(line, rec):
             orig += w + ' '
             fo.write('{}\n'.format(w.upper()))
 
-    proc = subprocess.Popen(['g2p.py', '--model', '/home/vojtech/ang-hclg/g2p-model-2', '--apply', 'processed.txt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['g2p.py', '--model', 'g2p-model-2', '--apply', 'processed.txt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     transcription = ''
     for trn in proc.communicate()[0].decode().split('\n'):
         if len(trn) == 0:
@@ -27,7 +27,7 @@ def obtain_trn(line, rec):
     return transcription, orig
 
 def get_hypothesis_list(wavdir, rec, n=1):
-    proc = subprocess.Popen(['./sample_usage.py', "{}/{}.wav".format(wavdir, rec), str(n)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['./decode_multiple_hypothesis.py', "{}/{}.wav".format(wavdir, rec), str(n)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hypotheses = []
     for hyp in proc.communicate()[0].decode().split('\n'):
         if len(hyp) < 1:
@@ -39,14 +39,13 @@ def prepare_data(transcriptions, hypothesis, hyp_file, gold_file, blank_default)
     counter = 0
     for hyp_list, trn in zip(hypothesis, transcriptions):
         counter += 1
-        print(counter)
         for i, hypotheses in enumerate(hyp_list):
             with open(hyp_file + "." + str(i), "a") as f:
                 f.write("{} ({})\n".format(hypotheses, counter))
         with open(gold_file, "a") as f:
             f.write("{} ({})\n".format(trn, counter))
 
-def eval_pra_file(pra):
+def eval_pra_file(pra, best_dict):
     with open(pra, 'r') as f:
         hyp_len = 0
         for line in f:
@@ -61,7 +60,10 @@ def eval_pra_file(pra):
                 no_i = len([sp for sp in splitted if sp == 'I'])
                 no_d = len([sp for sp in splitted if sp == 'D'])
                 wer = no_d + no_i + no_s
-                print('{},{}'.format(uid, wer))
+                try:
+                    best_dict[uid] = min(best_dict[uid], wer)
+                except:
+                    best_dict[uid] = wer
 
 def eval_hypothesis_list(transcriptions, hypotheses, n=1, oracle=True):
     ref = 'trns.lst'
@@ -84,15 +86,15 @@ def eval_hypothesis_list(transcriptions, hypotheses, n=1, oracle=True):
 if __name__ == '__main__':
     transcriptions = []
     hypothesis_lst = []
-    n = 3
-    with open('phonetic-trns.all', 'w') as of:
-        with open('transcriptions.all', 'r') as f:
-            for line in f:
-                sp = line.split()
-                trn, orig = obtain_trn(' '.join(sp[:-1]), '')
-                of.write('{} {}\n'.format(trn, sp[-1]))
+    n = 5
+    best = dict()
+#    with open('phonetic-trns.all', 'w') as of:
+#        with open('transcriptions.all', 'r') as f:
+#            for line in f:
+#                sp = line.split()
+#                trn, orig = obtain_trn(' '.join(sp[:-1]), '')
+#                of.write('{} {}\n'.format(trn, sp[-1]))
 
-    sys.exit(0)
     for rec in glob.glob('{}/*.wav'.format(wavdir)):
         print('Recognizing {}'.format(rec))
         rec = os.path.basename(rec).split('.')[0]
@@ -103,6 +105,8 @@ if __name__ == '__main__':
 
     pra_files = eval_hypothesis_list(transcriptions, hypothesis_lst, n)
     for pf in pra_files:
-        eval_pra_file(pf)
+        eval_pra_file(pf, best)
+
+    print(best)
 
 #    print ('"{}:{}"; WER:{}, {}'.format(orig, transcription, wer, best))
