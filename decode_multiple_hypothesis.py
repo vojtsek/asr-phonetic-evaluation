@@ -15,7 +15,6 @@ def make_hyp(decoder, word_ids):
     return hyp
 
 def decode(wav_name, model_dir, n, word_conf=False):
-    gold_trn = open(wav_name + '.trn').read()
     pcm = wave.open(wav_name)
 
     decoder = Decoder(model_dir)
