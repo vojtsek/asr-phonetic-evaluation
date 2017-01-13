@@ -27,7 +27,7 @@ def obtain_trn(line, rec):
     return transcription, orig
 
 def get_hypothesis_list(wavdir, rec, n=1):
-    proc = subprocess.Popen(['./decode_multiple_hypothesis.py', "{}/{}.wav".format(wavdir, rec), str(n)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['./decode_multiple_hypothesis.py', '--wav', "{}/{}.wav".format(wavdir, rec), '-n', str(n)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hypotheses = []
     for hyp in proc.communicate()[0].decode().split('\n'):
         if len(hyp) < 1:
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     for rec in glob.glob('{}/*.wav'.format(wavdir)):
         print('Recognizing {}'.format(rec))
-        rec = os.path.basename(rec).split('.')[0]
+        rec = '.'.join(os.path.basename(rec).split('.')[:-1])
         transcription, orig = obtain_trn(trndir, rec)
         hypothesis = get_hypothesis_list(wavdir, rec, n)
         hypothesis_lst.append(hypothesis)
