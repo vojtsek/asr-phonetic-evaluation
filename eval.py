@@ -11,8 +11,8 @@ trndir = sys.argv[2]
 
 def obtain_trn(line, rec):
     orig = ''
-#    with open('{}/{}.wav.trn'.format(trndir, rec), 'r') as fi:
-#        line = fi.read().split()
+    with open('{}/{}.wav.trn'.format(trndir, rec), 'r') as fi:
+        line = fi.read().split()
     with open('processed.txt', 'w') as fo:
         for w in line:
             orig += w + ' '
@@ -61,9 +61,10 @@ def eval_pra_file(pra, best_dict):
                 no_d = len([sp for sp in splitted if sp == 'D'])
                 wer = no_d + no_i + no_s
                 try:
-                    best_dict[uid] = min(best_dict[uid], wer)
+                    if wer < best_dict[uid][0]:
+                        best_dict[uid] = (wer, hyp_len)
                 except:
-                    best_dict[uid] = wer
+                    best_dict[uid] = (wer, hyp_len)
 
 def eval_hypothesis_list(transcriptions, hypotheses, n=1, oracle=True):
     ref = 'trns.lst'
@@ -108,5 +109,9 @@ if __name__ == '__main__':
         eval_pra_file(pf, best)
 
     print(best)
+    wers = sum(map(lambda x: int(x[1][0]), best.items()))
+    hyp_lens = sum(map(lambda x: int(x[1][1]), best.items()))
+    overall_wer = wers / hyp_lens
+    print('Overall WER is: {}%'.format(overall_wer * 100))
 
 #    print ('"{}:{}"; WER:{}, {}'.format(orig, transcription, wer, best))
