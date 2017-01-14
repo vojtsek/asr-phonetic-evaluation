@@ -87,7 +87,7 @@ def eval_hypothesis_list(transcriptions, hypotheses, n=1, oracle=True):
 if __name__ == '__main__':
     transcriptions = []
     hypothesis_lst = []
-    n = 5
+    n = 1
     best = dict()
 #    with open('phonetic-trns.all', 'w') as of:
 #        with open('transcriptions.all', 'r') as f:
