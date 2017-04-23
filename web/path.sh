@@ -1,0 +1,1 @@
+/home/vojta/improve/asr/alignment_tool/path.sh

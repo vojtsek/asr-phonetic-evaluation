@@ -4,10 +4,9 @@ import os
 import sys
 import numpy as np
 import subprocess
+import pickle
 import editdistance as ed
 
-wavdir = sys.argv[1]
-trndir = sys.argv[2]
 
 def obtain_trn(line, rec):
     orig = ''
@@ -29,8 +28,10 @@ def obtain_trn(line, rec):
 def get_hypothesis_list(wavdir, rec, n=1):
     proc = subprocess.Popen(['./decode_multiple_hypothesis.py', '--wav', "{}/{}.wav".format(wavdir, rec), '-n', str(n)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hypotheses = []
+    odd = False
     for hyp in proc.communicate()[0].decode().split('\n'):
-        if len(hyp) < 1:
+        odd = not odd
+        if odd or (len(hyp) < 1):
             continue
         hypotheses.append(hyp)
     return hypotheses
@@ -45,13 +46,16 @@ def prepare_data(transcriptions, hypothesis, hyp_file, gold_file, blank_default)
         with open(gold_file, "a") as f:
             f.write("{} ({})\n".format(trn, counter))
 
-def eval_pra_file(pra, best_dict):
+def eval_pra_file(pra, best_dict, idx):
     with open(pra, 'r') as f:
         hyp_len = 0
         for line in f:
             if line.startswith('id:'):
                 uid = line.split()[1].lstrip('(').rstrip(')')
             if line.startswith('REF:'):
+                splitted = line.split()[1:]
+                ref_len = len([sp for sp in splitted if len(sp.strip('*')) > 0])
+            if line.startswith('HYP:'):
                 splitted = line.split()[1:]
                 hyp_len = len([sp for sp in splitted if len(sp.strip('*')) > 0])
             if line.startswith('Eval'):
@@ -62,9 +66,9 @@ def eval_pra_file(pra, best_dict):
                 wer = no_d + no_i + no_s
                 try:
                     if wer < best_dict[uid][0]:
-                        best_dict[uid] = (wer, hyp_len)
+                        best_dict[uid] = (wer, ref_len, idx)
                 except:
-                    best_dict[uid] = (wer, hyp_len)
+                    best_dict[uid] = (wer, ref_len, idx)
 
 def eval_hypothesis_list(transcriptions, hypotheses, n=1, oracle=True):
     ref = 'trns.lst'
@@ -85,10 +89,27 @@ def eval_hypothesis_list(transcriptions, hypotheses, n=1, oracle=True):
     return pra_files
  
 if __name__ == '__main__':
-    transcriptions = []
-    hypothesis_lst = []
-    n = 1
-    best = dict()
+    if len(sys.argv) == 2:
+        n = int(sys.argv[1])
+        with open('results_{}_best.dump'.format(n), 'rb') as f:
+            best_dict = pickle.load(f)
+            idxs = list(map(lambda x: x[2], best_dict.values()))
+            for i in range(n):
+                bd_values_i = [item[0] for item in best_dict.values() if item[2] == i]
+                bd_lens_i = [item[1] for item in best_dict.values() if item[2] == i]
+                if len(bd_lens_i) == 0:
+                    continue
+                print("Hypotheses {} PER: {}".format(i, sum(bd_values_i) / sum(bd_lens_i)))
+            pers = []
+            print(np.bincount(idxs))
+
+    else:
+        wavdir = sys.argv[1]
+        trndir = sys.argv[2]
+        n = int(sys.argv[3])
+        transcriptions = []
+        hypothesis_lst = []
+        best = dict()
 #    with open('phonetic-trns.all', 'w') as of:
 #        with open('transcriptions.all', 'r') as f:
 #            for line in f:
@@ -96,22 +117,24 @@ if __name__ == '__main__':
 #                trn, orig = obtain_trn(' '.join(sp[:-1]), '')
 #                of.write('{} {}\n'.format(trn, sp[-1]))
 
-    for rec in glob.glob('{}/*.wav'.format(wavdir)):
-        print('Recognizing {}'.format(rec))
-        rec = '.'.join(os.path.basename(rec).split('.')[:-1])
-        transcription, orig = obtain_trn(trndir, rec)
-        hypothesis = get_hypothesis_list(wavdir, rec, n)
-        hypothesis_lst.append(hypothesis)
-        transcriptions.append(transcription)
+        for rec in glob.glob('{}/*.wav'.format(wavdir)):
+            print('Recognizing {}'.format(rec))
+            rec = '.'.join(os.path.basename(rec).split('.')[:-1])
+            transcription, orig = obtain_trn(trndir, rec)
+            hypothesis = get_hypothesis_list(wavdir, rec, n)
+            hypothesis_lst.append(hypothesis)
+            transcriptions.append(transcription)
 
-    pra_files = eval_hypothesis_list(transcriptions, hypothesis_lst, n)
-    for pf in pra_files:
-        eval_pra_file(pf, best)
+        pra_files = eval_hypothesis_list(transcriptions, hypothesis_lst, n)
+        for pf in pra_files:
+            idx = int(pf.split('.')[-2])
+            eval_pra_file(pf, best, idx)
+        
+        pickle.dump(best, open('results_{}_best.dump'.format(n), 'wb'))
 
-    print(best)
-    wers = sum(map(lambda x: int(x[1][0]), best.items()))
-    hyp_lens = sum(map(lambda x: int(x[1][1]), best.items()))
-    overall_wer = wers / hyp_lens
-    print('Overall WER is: {}%'.format(overall_wer * 100))
+        pers = sum(map(lambda x: int(x[1][0]), best.items()))
+        hyp_lens = sum(map(lambda x: int(x[1][1]), best.items()))
+        overall_per = pers / hyp_lens
+        print('Overall PER is: {}%'.format(overall_per * 100))
 
 #    print ('"{}:{}"; WER:{}, {}'.format(orig, transcription, wer, best))

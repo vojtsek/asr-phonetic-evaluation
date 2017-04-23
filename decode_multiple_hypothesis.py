@@ -24,10 +24,12 @@ def decode(wav_name, model_dir, n, word_conf=False):
     decoder.input_finished()
     N = max(2, n) # nasty hack since for n=1 the nbest does not work
     lkl, lat = decoder.get_lattice()
+    p, word_ids = decoder.get_best_path()
     nbest = lattice_to_nbest_word_confidence(lat, N) if word_conf else lattice_to_nbest(lat, N)
     for lik, word_ids in nbest:
-        print(lik)
-        print(process_utt('', '', join_utterance(decoder, word_ids), False, ' ', True).strip())
+        #print(lik)
+        words = process_utt('', '', join_utterance(decoder, word_ids), False, ' ', True).strip()
+        print(words)
         if n == 1:
 # TODO: assert likelihod is the same as the get_best()
             break
@@ -43,5 +45,7 @@ if __name__ == "__main__":
     n = args.n
     word_conf = args.word_conf
 
-    model_dir = '/home/vojta/improve/asr/demo-alex-asr-with-pretrained-model/alex_asr_tri6b_chain_9_3WER_test_clean'
-    decode(wav_name, model_dir, n, word_conf)
+    model_dir = '/scratch/vojta-code/chain-model-phones'
+    model_dir_new = '/scratch/vojta-code/chain-model-phones-0120'
+
+    decode(wav_name, model_dir_new, n, word_conf)

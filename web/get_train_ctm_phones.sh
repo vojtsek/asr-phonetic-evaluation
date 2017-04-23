@@ -1,0 +1,1 @@
+/home/vojta/improve/asr/alignment_tool/get_train_ctm_phones.sh
